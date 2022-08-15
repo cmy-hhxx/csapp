@@ -272,7 +272,29 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+    int isZero = !x;
+
+    int mask = ((!!x) << 31) >> 31;
+    x = x^(x >> 31);
+    int bit_16, bit_8, bit_4, bit_2, bit_1, bit_0;
+    bit_16 = !(!(x >> 16)) << 4;
+    x >>= bit_16;
+
+    bit_8 = !(!(x >> 8)) << 3;
+    x >>= bit_8;
+
+    bit_4 = !(!(x >> 4)) << 2;
+    x >>= bit_4;
+
+    bit_2 = !(!(x >> 2)) << 1;
+    x >>= bit_2;
+
+    bit_1 = !(!(x >> 1));
+    x >>= bit_1;
+
+    bit_0 = x;
+    int res = bit_16 + bit_8 + bit_4 + bit_2 + bit_1 + bit_0 + 1;
+    return isZero | (mask & res);
 }
 //float
 /* 
@@ -287,7 +309,31 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+    // s exp frac
+
+    unsigned s = (uf >> 31) & 1;
+    unsigned exp = (uf >> 23) & 255;
+    unsigned frac = (uf & 0x7fffff);
+
+    // if uf is 0
+    if (!exp && !frac)
+        return uf;
+
+    // if uf is not a number
+    if (exp == 255)
+        return uf;
+
+    // if uf is denormalized number
+    if (exp == 0)
+    {
+        frac <<= 1;
+        return (s << 31) | frac;
+    }
+
+    // if uf is normalized number
+    exp ++;
+    return (s << 31) | (exp << 23) | (frac);
+
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -302,7 +348,28 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+    unsigned s = (uf >> 31) & 1;
+    unsigned exp = (uf >> 23) & 255;
+    unsigned frac = uf & 0x7fffff;
+
+    if (!exp && !frac) return 0;
+
+    if (!exp) return 0;
+
+    if (exp == 255) return 1 << 31;
+
+    frac = frac | (1 << 23);
+    int E = exp - 127;
+
+    if (E < 0) return 0;
+    else if (E < 23) frac >>= (23 - E);
+    else if (E < 32) frac <<= (E - 23);
+    else return 1 << 31;
+    
+    if (!s)
+        return frac;
+    return ~frac + 1;
+
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -318,5 +385,17 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if (x < -149)
+        return 0;
+    else if (x < -126)
+    {
+        int a = -126 + ~x + 1;
+        return 1 << (23 - a);
+    }
+    else if (x <= 127)
+    {
+        int exp = x + 127;
+        return exp << 23;
+    }
+    else return 0x7f8 << 20;
 }
